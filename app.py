@@ -51,7 +51,6 @@ async def websocket_endpoint(websocket: WebSocket):
                         resultado = json.loads(reconocedor_vosk.PartialResult())
                         texto_detectado = resultado.get("partial", "").lower()
                     
-                    # Agregué variantes por si Vosk escucha mal el nombre
                     variantes_kinema = ["kinema", "cinema", "quema", "kíne", "kine"]
                     if any(palabra in texto_detectado for palabra in variantes_kinema):
                         logger.info(f"\n>> 🎯 ¡WAKE WORD DETECTADA! ({texto_detectado})")
@@ -79,10 +78,13 @@ async def websocket_endpoint(websocket: WebSocket):
                     if vosk_model:
                         rec_final = KaldiRecognizer(vosk_model, 16000)
                         
+                        # SOLUCIÓN AL ERROR: Convertimos el bytearray a bytes puros aquí mismo
+                        audio_final_bytes = bytes(buffer_audio)
+                        
                         # Procesar el audio guardado en bloques
                         chunk_size = 4000
-                        for i in range(0, len(buffer_audio), chunk_size):
-                            rec_final.AcceptWaveform(buffer_audio[i:i+chunk_size])
+                        for i in range(0, len(audio_final_bytes), chunk_size):
+                            rec_final.AcceptWaveform(audio_final_bytes[i:i+chunk_size])
                             
                         resultado_final = json.loads(rec_final.FinalResult())
                         texto_traducido = resultado_final.get("text", "").strip().lower()
