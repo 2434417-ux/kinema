@@ -55,10 +55,10 @@ async def websocket_endpoint(websocket: WebSocket):
                         "kinema", "cinema", "quema", "kíne", "kine", 
                         "quinema", "sinema", "enema", "minema", 
                         "crema", "esquema", "sistema", "tema", 
-                        "lema", "gema", "yema", "poema", "diadema"
+                        "lema", "gema", "yema", "poema", "diadema", "quien emma"
                     ]
                     if any(palabra in texto_detectado for palabra in variantes_kinema):
-                        logger.info(f"\n>> 🎯 ¡WAKE WORD DETECTADA! ({texto_detectado})")
+                        logger.info(f"\n>> 🎯 ¡WAKE WORD DETECTADA! (Kinema)")
                         estado_actual = "ESPERANDO_PREGUNTA"
                         reconocedor_vosk.Reset()
                         await websocket.send_text("WAKE") 
@@ -81,6 +81,12 @@ async def websocket_endpoint(websocket: WebSocket):
                     if vosk_model:
                         resultado_final = json.loads(reconocedor_vosk.FinalResult())
                         texto_traducido = resultado_final.get("text", "").strip().lower()
+                        
+                        # --- AUTOCORRECTOR DE VOSK ---
+                        correcciones = ["cinema", "quien emma", "quema", "kíne", "kine", "sinema", "quinema"]
+                        for palabra_mal in correcciones:
+                            texto_traducido = texto_traducido.replace(palabra_mal, "kinema")
+                        # ------------------------------
                         
                         if texto_traducido:
                             logger.info(f">> 🗣️ COMANDO TRADUCIDO: '{texto_traducido}'")
