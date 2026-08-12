@@ -50,7 +50,13 @@ async def websocket_endpoint(websocket: WebSocket):
                         resultado = json.loads(reconocedor_vosk.PartialResult())
                         texto_detectado = resultado.get("partial", "").lower()
                     
-                    variantes_kinema = ["kinema", "cinema", "quema", "kíne", "kine"]
+                    # Lista ampliada de palabras clave
+                    variantes_kinema = [
+                        "kinema", "cinema", "quema", "kíne", "kine", 
+                        "quinema", "sinema", "enema", "minema", 
+                        "crema", "esquema", "sistema", "tema", 
+                        "lema", "gema", "yema", "poema", "diadema"
+                    ]
                     if any(palabra in texto_detectado for palabra in variantes_kinema):
                         logger.info(f"\n>> 🎯 ¡WAKE WORD DETECTADA! ({texto_detectado})")
                         estado_actual = "ESPERANDO_PREGUNTA"
@@ -59,7 +65,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 
                 # 2. PROCESANDO LA ORDEN EN VIVO (MÁXIMA VELOCIDAD)
                 elif estado_actual == "GRABANDO" and vosk_model:
-                    # Le damos el audio a Vosk al instante, no lo guardamos
                     reconocedor_vosk.AcceptWaveform(audio_chunk)
 
             # --- MANEJO DE ESTADOS ---
@@ -74,7 +79,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     logger.info(">> 🛑 Silencio. Enviando orden al instante...")
                     
                     if vosk_model:
-                        # Extraemos el resultado que Vosk ya procesó mientras hablabas
                         resultado_final = json.loads(reconocedor_vosk.FinalResult())
                         texto_traducido = resultado_final.get("text", "").strip().lower()
                         
