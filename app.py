@@ -55,7 +55,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "kinema", "cinema", "quema", "kíne", "kine", 
                         "quinema", "sinema", "enema", "minema", 
                         "crema", "esquema", "sistema", "tema", 
-                        "lema", "gema", "yema", "poema", "diadema", "quien emma"
+                        "lema", "gema", "yema", "poema", "diadema", "quien emma", "en emma"
                     ]
                     
                     # Si detecta la activación, DESPIERTA EL SISTEMA
