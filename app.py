@@ -41,7 +41,7 @@ async def websocket_endpoint(websocket: WebSocket):
             if "bytes" in data:
                 audio_chunk = data["bytes"]
                 
-                # 1. ESPERANDO LA WAKE WORD "KINEMA"
+                # 1. ESPERANDO LA WAKE WORD
                 if estado_actual == "VIGILANDO" and vosk_model:
                     if reconocedor_vosk.AcceptWaveform(audio_chunk):
                         resultado = json.loads(reconocedor_vosk.Result())
@@ -50,20 +50,22 @@ async def websocket_endpoint(websocket: WebSocket):
                         resultado = json.loads(reconocedor_vosk.PartialResult())
                         texto_detectado = resultado.get("partial", "").lower()
                     
-                    # Lista ampliada de palabras clave
+                    # CUALQUIERA DE ESTAS PALABRAS DESPIERTA AL BRAZO
                     variantes_kinema = [
                         "kinema", "cinema", "quema", "kíne", "kine", 
                         "quinema", "sinema", "enema", "minema", 
                         "crema", "esquema", "sistema", "tema", 
                         "lema", "gema", "yema", "poema", "diadema", "quien emma"
                     ]
+                    
+                    # Si detecta la activación, DESPIERTA EL SISTEMA
                     if any(palabra in texto_detectado for palabra in variantes_kinema):
-                        logger.info(f"\n>> 🎯 ¡WAKE WORD DETECTADA! (Kinema)")
+                        logger.info(f"\n>> 🎯 ¡WAKE WORD DETECTADA! (Se escuchó: {texto_detectado})")
                         estado_actual = "ESPERANDO_PREGUNTA"
                         reconocedor_vosk.Reset()
                         await websocket.send_text("WAKE") 
                 
-                # 2. PROCESANDO LA ORDEN EN VIVO (MÁXIMA VELOCIDAD)
+                # 2. PROCESANDO LA ORDEN EN VIVO
                 elif estado_actual == "GRABANDO" and vosk_model:
                     reconocedor_vosk.AcceptWaveform(audio_chunk)
 
@@ -76,23 +78,24 @@ async def websocket_endpoint(websocket: WebSocket):
                     logger.info(">> 🎙️ Escuchando orden para el brazo...")
                 
                 elif msg == "STOP" and estado_actual == "GRABANDO":
-                    logger.info(">> 🛑 Silencio. Enviando orden al instante...")
+                    logger.info(">> 🛑 Silencio. Procesando orden...")
                     
                     if vosk_model:
                         resultado_final = json.loads(reconocedor_vosk.FinalResult())
                         texto_traducido = resultado_final.get("text", "").strip().lower()
                         
-                        # --- AUTOCORRECTOR DE VOSK ---
-                        correcciones = ["cinema", "quien emma", "quema", "kíne", "kine", "sinema", "quinema"]
-                        for palabra_mal in correcciones:
-                            texto_traducido = texto_traducido.replace(palabra_mal, "kinema")
-                        # ------------------------------
+                        # --- FILTRO LIMPIADOR ---
+                        # Evita que la palabra de activación se cuele en la orden (ej. si graba "cinema hola", lo deja en "hola")
+                        rastros = ["cinema", "quien emma", "quema", "kíne", "kine", "sinema", "quinema", "kinema"]
+                        for rastro in rastros:
+                            texto_traducido = texto_traducido.replace(rastro, "").strip()
+                        # ------------------------
                         
                         if texto_traducido:
-                            logger.info(f">> 🗣️ COMANDO TRADUCIDO: '{texto_traducido}'")
+                            logger.info(f">> 🗣️ COMANDO LIMPIO ENVIADO: '{texto_traducido}'")
                             await websocket.send_text(f"TEXTO:{texto_traducido}")
                         else:
-                            logger.info(">> ❌ No se entendió el comando.")
+                            logger.info(">> ❌ No se detectó ninguna orden después de la palabra de activación.")
 
                     await websocket.send_text("LIBERAR")
                     estado_actual = "VIGILANDO"
