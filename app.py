@@ -8,7 +8,7 @@ from vosk import Model, KaldiRecognizer
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
 
-logger.info(">> [KINEMA BOOT] Iniciando Servidor STT...")
+logger.info(">> [KINEMA BOOT] Iniciando Servidor STT Ultrarrápido...")
 
 app = FastAPI()
 
@@ -29,7 +29,6 @@ async def websocket_endpoint(websocket: WebSocket):
     logger.info("\n>> 🟢 BRAZO KINEMA CONECTADO.")
     
     estado_actual = "VIGILANDO"
-    buffer_audio = bytearray()
     
     if vosk_model:
         reconocedor_vosk = KaldiRecognizer(vosk_model, 16000)
@@ -38,11 +37,11 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             data = await websocket.receive()
             
-            # --- MANEJO DE AUDIO ---
+            # --- MANEJO DE AUDIO EN TIEMPO REAL ---
             if "bytes" in data:
                 audio_chunk = data["bytes"]
                 
-                # 1. ESPERANDO LA PALABRA "KINEMA"
+                # 1. ESPERANDO LA WAKE WORD "KINEMA"
                 if estado_actual == "VIGILANDO" and vosk_model:
                     if reconocedor_vosk.AcceptWaveform(audio_chunk):
                         resultado = json.loads(reconocedor_vosk.Result())
@@ -58,9 +57,10 @@ async def websocket_endpoint(websocket: WebSocket):
                         reconocedor_vosk.Reset()
                         await websocket.send_text("WAKE") 
                 
-                # 2. GUARDANDO EL COMANDO A TRADUCIR
-                elif estado_actual == "GRABANDO":
-                    buffer_audio.extend(audio_chunk)
+                # 2. PROCESANDO LA ORDEN EN VIVO (MÁXIMA VELOCIDAD)
+                elif estado_actual == "GRABANDO" and vosk_model:
+                    # Le damos el audio a Vosk al instante, no lo guardamos
+                    reconocedor_vosk.AcceptWaveform(audio_chunk)
 
             # --- MANEJO DE ESTADOS ---
             elif "text" in data:
@@ -68,25 +68,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 
                 if msg == "START" and estado_actual == "ESPERANDO_PREGUNTA":
                     estado_actual = "GRABANDO"
-                    buffer_audio = bytearray()
                     logger.info(">> 🎙️ Escuchando orden para el brazo...")
                 
                 elif msg == "STOP" and estado_actual == "GRABANDO":
-                    logger.info(">> 🛑 Silencio detectado. Procesando comando...")
-                    estado_actual = "PENSANDO"
+                    logger.info(">> 🛑 Silencio. Enviando orden al instante...")
                     
                     if vosk_model:
-                        rec_final = KaldiRecognizer(vosk_model, 16000)
-                        
-                        # SOLUCIÓN AL ERROR: Convertimos el bytearray a bytes puros aquí mismo
-                        audio_final_bytes = bytes(buffer_audio)
-                        
-                        # Procesar el audio guardado en bloques
-                        chunk_size = 4000
-                        for i in range(0, len(audio_final_bytes), chunk_size):
-                            rec_final.AcceptWaveform(audio_final_bytes[i:i+chunk_size])
-                            
-                        resultado_final = json.loads(rec_final.FinalResult())
+                        # Extraemos el resultado que Vosk ya procesó mientras hablabas
+                        resultado_final = json.loads(reconocedor_vosk.FinalResult())
                         texto_traducido = resultado_final.get("text", "").strip().lower()
                         
                         if texto_traducido:
@@ -97,7 +86,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     await websocket.send_text("LIBERAR")
                     estado_actual = "VIGILANDO"
-                    buffer_audio = bytearray()
                     if vosk_model:
                         reconocedor_vosk.Reset()
 
